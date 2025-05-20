@@ -1,35 +1,35 @@
-// gcloud-authentication/src/routes/auth.ts
 import { Router, Request, Response } from "express";
 import { getCloudRunToken, getFCMAuthToken } from "../utils/google-auth";
 import { verifyFirebaseToken } from "../middleware/firebase";
 
 const router = Router();
 
-// Debug logging
-const DEBUG = true;
-
 /**
  * Public endpoint to get Cloud Run token
- * Requires Google Identity token (validated at Cloud Run level)
+ * Requires Firebase ID token in the Authorization header
  */
-router.get("/public-token", async (req: Request, res: Response) => {
+router.post("/public-token", async (req: Request, res: Response) => {
   try {
-    if (DEBUG) {
-      console.log("[Auth Service] Public token requested");
-      console.log("[Auth Service] Headers:", req.headers);
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return res
+        .status(401)
+        .json({ error: "Missing or invalid authorization header" });
     }
 
-    // The Google Identity token validation happens at Cloud Run level
-    // If we reach here, the token is already validated by Cloud Run
-    if (DEBUG)
-      console.log("[Auth Service] Identity token validated by Cloud Run");
+    // Extract Firebase ID token
+    const idToken = authHeader.split("Bearer ")[1];
+
+    // Verify Firebase token
+    try {
+      await verifyFirebaseToken(idToken);
+    } catch (error) {
+      console.error("Firebase token verification failed:", error);
+      return res.status(403).json({ error: "Invalid Firebase token" });
+    }
 
     // Generate Cloud Run token
-    if (DEBUG) console.log("[Auth Service] Generating Cloud Run token...");
     const token = await getCloudRunToken();
-
-    if (DEBUG)
-      console.log("[Auth Service] Cloud Run token generated successfully");
 
     res.json({
       token,
@@ -37,7 +37,7 @@ router.get("/public-token", async (req: Request, res: Response) => {
       timestamp: new Date().toISOString(),
     });
   } catch (error) {
-    console.error("[Auth Service] Error generating public token:", error);
+    console.error("Error generating token:", error);
     res.status(500).json({
       error: "Failed to generate token",
       details: error instanceof Error ? error.message : "Unknown error",
@@ -46,54 +46,17 @@ router.get("/public-token", async (req: Request, res: Response) => {
 });
 
 /**
- * Firebase-authenticated endpoint for getting tokens
- * Requires Firebase authentication
- */
-router.get(
-  "/token",
-  verifyFirebaseToken,
-  async (req: Request, res: Response) => {
-    try {
-      if (DEBUG) {
-        console.log("[Auth Service] Firebase authenticated token requested");
-        console.log("[Auth Service] User ID:", req.user?.uid);
-      }
-
-      const token = await getCloudRunToken();
-
-      res.json({
-        token,
-        expiresIn: 3600,
-        userId: req.user?.uid,
-        timestamp: new Date().toISOString(),
-      });
-    } catch (error) {
-      console.error("[Auth Service] Error generating Firebase token:", error);
-      res.status(500).json({
-        error: "Failed to generate token",
-        details: error instanceof Error ? error.message : "Unknown error",
-      });
-    }
-  }
-);
-
-/**
  * Generate FCM authorization token for notifications
  */
 router.get("/fcm-token", async (req: Request, res: Response) => {
   try {
-    if (DEBUG) console.log("[Auth Service] FCM token requested");
-
     const token = await getFCMAuthToken();
-
-    if (DEBUG) console.log("[Auth Service] FCM token generated successfully");
-
     res.json({
       token,
       timestamp: new Date().toISOString(),
     });
   } catch (error) {
-    console.error("[Auth Service] Error generating FCM token:", error);
+    console.error("Error generating FCM token:", error);
     res.status(500).json({
       error: "Failed to generate FCM token",
       details: error instanceof Error ? error.message : "Unknown error",

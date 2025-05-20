@@ -40,7 +40,7 @@ export async function getFCMAuthToken(): Promise<string> {
     const jwtClient = new JWT({
       email: process.env.FIREBASE_CLIENT_EMAIL,
       key: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, "\n"),
-      scopes: ["https://www.googleapis.com/auth/firebase.messaging"],  // Ensure this scope is correct
+      scopes: ["https://www.googleapis.com/auth/firebase.messaging"],
     });
 
     const token = await jwtClient.authorize();

@@ -1,5 +1,5 @@
-import admin from "firebase-admin";
 import { Request, Response, NextFunction } from "express";
+import * as admin from "firebase-admin";
 import dotenv from "dotenv";
 
 // Load environment variables
@@ -49,18 +49,30 @@ declare global {
 }
 
 /**
- * Middleware to verify Firebase authentication token
+ * Verify Firebase ID token
+ * @param token Firebase ID token
+ * @returns Decoded token
  */
-export function verifyFirebaseToken(
-  req: Request,
-  res: Response,
-  next: NextFunction
-): void {
-  const authHeader = req.headers.authorization;
+export async function verifyFirebaseToken(
+  token: string
+): Promise<admin.auth.DecodedIdToken> {
+  try {
+    return await admin.auth().verifyIdToken(token);
+  } catch (error) {
+    console.error("Error verifying Firebase token:", error);
+    throw error;
+  }
+}
 
+/**
+ * Express middleware to verify Firebase authentication
+ */
+export function requireAuth(req: Request, res: Response, next: NextFunction) {
+  const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
-    res.status(401).json({ error: "Missing or invalid authorization header" });
-    return;
+    return res
+      .status(401)
+      .json({ error: "Missing or invalid authorization header" });
   }
 
   const idToken = authHeader.split("Bearer ")[1];
@@ -73,7 +85,7 @@ export function verifyFirebaseToken(
       next();
     })
     .catch((error) => {
-      console.error("Error verifying Firebase token:", error);
-      res.status(403).json({ error: "Unauthorized: Invalid token" });
+      console.error("Auth middleware error:", error);
+      res.status(403).json({ error: "Invalid or expired token" });
     });
 }
