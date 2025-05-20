@@ -7,8 +7,8 @@ dotenv.config();
 // Initialize Google Auth for Cloud Run
 const cloudRunAuth = new GoogleAuth({
   credentials: {
-    client_email: process.env.CLOUD_RUN_SERVICE_ACCOUNT_EMAIL,
-    private_key: process.env.CLOUD_RUN_PRIVATE_KEY?.replace(/\\n/g, "\n"),
+    client_email: process.env.FIREBASE_CLIENT_EMAIL,
+    private_key: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, "\n"),
   },
   scopes: ["https://www.googleapis.com/auth/cloud-platform"],
 });
